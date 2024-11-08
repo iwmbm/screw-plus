@@ -53,6 +53,7 @@ void main(int argc, char**argv)
             screw_work(path);
         
     }
+    alertMsg("start scanRoot"," ");
     scanRoot(path);
 }
 
@@ -143,57 +144,97 @@ void screw_decrypt(char *file) {
 }
 
 void screw_work(char *file) {
-  if(encode)
+  if(encode){
+    alertMsg("start encrypt"," ");
     screw_encrypt(file);
-  else
+  }else{
     screw_decrypt(file);
+  }
 }
-
 void screw_encrypt(char *file) {
     FILE    *fp;
     struct  stat    stat_buf;
-    char    *datap;
-    int datalen;
-    char    oldfilename[256];
-    char *prepare;
-    char lenBuf[16];
-    int i;
+    char    *datap = NULL;
+    int     datalen;
+    char    lenBuf[16];
+
+    printf("DEBUG: 开始加密文件: %s\n", file);
+
+    // 1. 初始化缓冲区
     memset(lenBuf, 0, 16);
     memset(key, 0, sizeof(key));
     memcpy(key, md5(CAKEY), 32);
     memcpy(enTag, key, 16);
 
+    // 2. 打开源文件
     fp = fopen(file, "rb");
     if (fp == NULL) {
-        fprintf(stderr, "File not found(%s)", file);
-        exit(0);
+        fprintf(stderr, "无法打开文件: %s\n", file);
+        return;
     }
 
+    // 3. 获取文件大小
+    if (fstat(fileno(fp), &stat_buf) != 0) {
+        fprintf(stderr, "获取文件状态失败\n");
+        fclose(fp);
+        return;
+    }
 
-    fstat(fileno(fp), &stat_buf);
     datalen = stat_buf.st_size;
-    datap = (char*)malloc(datalen);
-    memset(datap, 0, sizeof(datap));
-    fread(datap, datalen, 1, fp);
-    fclose(fp);
-    sprintf(lenBuf,"%d",datalen);
-    if (memcmp(datap, enTag, 16) == 0) {
-        errMsg(file ," Already Crypted");
-        return ;
-    }else if(datalen <1) {
-        errMsg(file ," will not be crypted");
-        return ;
+    printf("DEBUG: 文件大小: %d 字节\n", datalen);
+
+    // 4. 分配内存 (多分配些空间防止溢出)
+    datap = (char*)malloc(datalen + 32);
+    if (datap == NULL) {
+        fprintf(stderr, "内存分配失败\n");
+        fclose(fp);
+        return;
     }
-    screw_aes(1,datap,datalen,key,&datalen);
+
+    // 5. 初始化内存
+    memset(datap, 0, datalen + 32);
+
+    // 6. 读取文件
+    size_t bytes_read = fread(datap, 1, datalen, fp);
+    fclose(fp);
+
+    if (bytes_read != datalen) {
+        fprintf(stderr, "文件读取不完整\n");
+        free(datap);
+        return;
+    }
+
+    // 7. 检查是否已加密
+    sprintf(lenBuf, "%d", datalen);
+    if (memcmp(datap, enTag, 16) == 0) {
+        errMsg(file, " 文件已加密");
+        free(datap);
+        return;
+    }
+
+    // 8. 加密数据
+    printf("DEBUG: 开始加密, 数据长度: %d\n", datalen);
+    screw_aes(1, datap, datalen, key, &datalen);
+
+    // 9. 写入加密后的文件
     fp = fopen(file, "wb");
     if (fp == NULL) {
-        errMsg("Can not create crypt file(%s)", oldfilename);
-        exit(0);
+        errMsg("无法创建加密文件", file);
+        free(datap);
+        return;
     }
-    fwrite(enTag, 16, 1, fp);
-    fwrite(lenBuf, 16, 1, fp);
-    fwrite(datap, datalen, 1, fp);
+
+    // 10. 写入文件内容并验证
+    size_t written = 0;
+    written += fwrite(enTag, 1, 16, fp);
+    written += fwrite(lenBuf, 1, 16, fp);
+    written += fwrite(datap, 1, datalen, fp);
+
+    printf("DEBUG: 写入总字节数: %zu\n", written);
+
+    // 11. 清理资源
     fclose(fp);
-    alertMsg("Success Crypting - ", file);
     free(datap);
+
+    alertMsg("加密成功 - ", file);
 }
