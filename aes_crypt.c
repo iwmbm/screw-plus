@@ -1,6 +1,3 @@
- /**
- * php screw plus
- **/
 void screw_aes(int crypt,uint8_t *buf,int bufLen,uint8_t *key,int *rLen){
     uint8_t t,out;
     aes_context aes;

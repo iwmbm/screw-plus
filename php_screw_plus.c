@@ -1,9 +1,3 @@
-/*
- * php_screw
- * (C) 2007, Kunimasa Noda/PM9.com, Inc. <http://www.pm9.com,  kuni@pm9.com>
- * see file LICENSE for license details
- */
-
 #include "php.h"
 #include "php_ini.h"
 #include "ext/standard/file.h"

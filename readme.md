@@ -1,4 +1,4 @@
-# PHP Screw Plus 加密工具
+# PHP 加密工具
 
 ## 支持版本
 PHP 5.6-8.1
